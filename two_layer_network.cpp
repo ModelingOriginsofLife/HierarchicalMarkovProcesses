@@ -6,6 +6,7 @@
 #include <armadillo>
 
 using namespace std;
+using namespace arma;
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -153,6 +154,8 @@ void Layer::createInputVectors()
 	{
 		len += Upper->S.size();
 	}
+	
+	Inputs = zeros<vec>(len);
 }
 
 void Layer::Iterate()
@@ -198,12 +201,13 @@ void SubNet::getWeightsFromInputs(vec Inputs)
 	
 	for (i=0;i<Links.size();i++)
 	{
-		Links[i].weight = Weights.at(i);
+		Links[i].weight = fabs(Weights.at(i));
 	}
 	
 	for (i=0;i<Nodes.size();i++)
 	{
-		double total=0;
+		double total=1e-20;
+		
 		for (j=0;j<Links.size();j++)
 			if (Links[j].src == i)
 				total += Links[j].weight;
@@ -218,13 +222,13 @@ void SubNet::makeRandomLinkMatrix(int inSize)
 {
 	int i,j;
 	
-	LinkMatrix = zeros<mat>(inSize,Links.size()); 
+	LinkMatrix = zeros<mat>(Links.size(), inSize); 
 	
 	for (i = 0; i < inSize ; i++)
 	{
 		for (j = 0; j < Links.size(); j++)
 		{
-			LinkMatrix.at(i,j) = (rand()%2000001-1000000.0)/1000000.0;
+			LinkMatrix.at(j,i) = (rand()%2000001-1000000.0)/1000000.0;
 		}
 	}
 }
@@ -233,10 +237,14 @@ void SubNet::makeRandomProjection()
 {
 	int i;
 	
-	projectionVector = zeros<vec>(Nodes.size());
+	upProjectionVector = zeros<vec>(Nodes.size());
+	downProjectionVector = zeros<vec>(Nodes.size());
 	
 	for (i=0;i<Nodes.size();i++)
-		projectionVector.at(i) = (rand()%2000001-1000000.0)/1000000.0;		
+	{
+		upProjectionVector.at(i) = (rand()%2000001-1000000.0)/1000000.0;		
+		downProjectionVector.at(i) = (rand()%2000001-1000000.0)/1000000.0;		
+	}
 }
 
 Layer Root;
@@ -269,4 +277,35 @@ void InitNetwork()
 
 int main(int argc, char **argv)
 {
+	InitNetwork();
+	
+	int i;
+	
+	for (i=0;i<100;i++)
+	{
+		Root.Iterate();
+		
+		FILE *f=fopen("timeseries.txt","a");
+		int j,k;
+		
+		fprintf(f,"%d ",i);
+		for (j=0;j<Root.S.size();j++)
+		{
+			for (k=0;k<Root.S[j].Nodes.size();k++)
+			{
+				fprintf(f,"%.6g ",Root.S[j].Nodes[k].val);
+			}
+		}
+
+		for (j=0;j<Root.Lower->S.size();j++)
+		{
+			for (k=0;k<Root.Lower->S[j].Nodes.size();k++)
+			{
+				fprintf(f,"%.6g ",Root.Lower->S[j].Nodes[k].val);
+			}
+		}
+		
+		fprintf(f,"\n");
+		fclose(f);		
+	}
 }
